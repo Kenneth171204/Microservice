@@ -1,0 +1,13 @@
+services:
+  restaurant-service:
+    build: .
+    container_name: restaurant_service_app
+    restart: always
+    ports:
+      - "8002:8002"
+    networks:
+      - food_delivery_net
+
+networks:
+  food_delivery_net:
+    external: true

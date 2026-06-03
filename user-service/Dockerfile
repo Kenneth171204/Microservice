@@ -21,3 +21,11 @@ RUN docker-php-ext-install \
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www
+
+COPY src/ .
+
+RUN composer install
+
+EXPOSE 8001
+
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8001"]
