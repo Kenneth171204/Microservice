@@ -1,25 +1,85 @@
+version: "3.8"
+
 services:
+  # === INFRASTRUCTURE (DATABASE & REDIS) ===
+  # === INFRASTRUCTURE (DATABASE & REDIS) ===
   mysql-db:
     image: mysql:8.0
-    container_name: food_delivery_db
+    container_name: mysql-db
+    restart: always
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: food_delivery
     ports:
-      - "3306:3306"
+      - "3310:3306" # <--- UBAH DI SINI (Kiri: Port Laptop, Kanan: Port Container)
     volumes:
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-    networks:
-      - food_delivery_net
+      - mysql_shared_data:/var/lib/mysql
 
   redis-db:
     image: redis:alpine
-    container_name: food_delivery_redis
+    container_name: redis-db
+    restart: always
     ports:
       - "6379:6379"
-    networks:
-      - food_delivery_net
 
-networks:
-  food_delivery_net:
-    external: true
+  # === MICROSERVICES ===
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    restart: always
+    ports:
+      - "8080:8080"
+    depends_on:
+      - user-service
+      - restaurant-service
+      - order-service
+      - delivery-service
+
+  user-service:
+    build: ./user-service
+    container_name: user-service
+    restart: always
+    ports:
+      - "8001:8001"
+    # Mengarah ke folder src tempat .env berada jika Dockerfilemu mengarah ke sana
+    volumes:
+      - ./user-service/src:/var/www/html
+    depends_on:
+      - mysql-db
+
+  restaurant-service:
+    build: ./restaurant-service
+    container_name: restaurant-service
+    restart: always
+    ports:
+      - "8002:8002"
+    env_file:
+      - ./restaurant-service/.env
+    depends_on:
+      - mysql-db
+
+  order-service:
+    build: ./order-service
+    container_name: order-service
+    restart: always
+    ports:
+      - "8003:8003"
+    env_file:
+      - ./order-service/.env
+    depends_on:
+      - mysql-db
+
+  delivery-service:
+    build: ./delivery-service
+    container_name: delivery-service
+    restart: always
+    ports:
+      - "8004:8004"
+    env_file:
+      - ./delivery-service/.env
+    depends_on:
+      - mysql-db
+      - redis-db
+
+volumes:
+  mysql_shared_data:
