@@ -1,0 +1,13 @@
+services:
+  order-service:
+    build: .
+    container_name: order_service_app
+    restart: always
+    ports:
+      - "8003:8003"
+    networks:
+      - food_delivery_net
+
+networks:
+  food_delivery_net:
+    external: true

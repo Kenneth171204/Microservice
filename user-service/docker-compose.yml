@@ -1,0 +1,13 @@
+services:
+  user-service:
+    build: .
+    container_name: user_service_app
+    restart: always
+    ports:
+      - "8001:8001"
+    networks:
+      - food_delivery_net
+
+networks:
+  food_delivery_net:
+    external: true

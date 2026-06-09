@@ -1,0 +1,13 @@
+services:
+  delivery-service:
+    build: .
+    container_name: delivery_service_app
+    restart: always
+    ports:
+      - "8004:8004"
+    networks:
+      - food_delivery_net
+
+networks:
+  food_delivery_net:
+    external: true
