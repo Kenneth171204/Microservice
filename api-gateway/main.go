@@ -22,6 +22,13 @@ func proxyRequest(targetPort string, prefix string) http.HandlerFunc {
         targetURL, _ := url.Parse("http://localhost:" + targetPort)
         proxy := httputil.NewSingleHostReverseProxy(targetURL)
 
+        proxy.ModifyResponse = func(resp *http.Response) error {
+            resp.Header.Del("Access-Control-Allow-Origin")
+            resp.Header.Del("Access-Control-Allow-Methods")
+            resp.Header.Del("Access-Control-Allow-Headers")
+            return nil
+        }
+
         r.URL.Path = strings.TrimPrefix(r.URL.Path, prefix)
         
         if r.URL.Path == "" {

@@ -44,9 +44,12 @@ exports.updateDeliveryStatus = async (req, res) => {
         delivery.current_location = current_location;
         await delivery.save();
 
-        // ADD THESE TWO LINES: Update the Redis cache with the fresh data
-        const cacheKey = `delivery:${id}`;
-        await redisClient.setEx(cacheKey, 3600, JSON.stringify(delivery));
+        try {
+            const cacheKey = `delivery:${id}`;
+            await redisClient.setEx(cacheKey, 3600, JSON.stringify(delivery));
+        } catch (redisErr) {
+            console.error("Bypass Redis karena error:", redisErr.message);
+        }
 
         res.json({
             message: 'Delivery updated',
@@ -63,26 +66,29 @@ exports.getDelivery = async (req, res) => {
         const deliveryId = req.params.id;
         const cacheKey = `delivery:${deliveryId}`;
 
-        // 1. Check Redis cache first
-        const cachedDelivery = await redisClient.get(cacheKey);
-
-        if (cachedDelivery) {
-            // Cache Hit!
-            return res.json({
-                source: 'Redis Cache',
-                data: JSON.parse(cachedDelivery)
-            });
+        try {
+            const cachedDelivery = await redisClient.get(cacheKey);
+            if (cachedDelivery) {
+                return res.json({
+                    source: 'Redis Cache',
+                    data: JSON.parse(cachedDelivery)
+                });
+            }
+        } catch (redisErr) {
+            console.error("Bypass Redis karena error:", redisErr.message);
         }
 
-        // 2. Cache Miss: Fetch from MySQL
         const delivery = await Delivery.findByPk(deliveryId);
 
         if (!delivery) {
             return res.status(404).json({ message: 'Delivery not found' });
         }
 
-        // 3. Save to Redis for future requests (Expires in 1 hour / 3600 seconds)
-        await redisClient.setEx(cacheKey, 3600, JSON.stringify(delivery));
+        try {
+            await redisClient.setEx(cacheKey, 3600, JSON.stringify(delivery));
+        } catch (redisErr) {
+            console.error("Bypass Redis karena error:", redisErr.message);
+        }
 
         res.json({
             source: 'MySQL Database',

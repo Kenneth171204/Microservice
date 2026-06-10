@@ -4,57 +4,32 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Services\FirebaseAuthService;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
-    protected FirebaseAuthService $firebase;
-
-    public function __construct(FirebaseAuthService $firebase)
-    {
-        $this->firebase = $firebase;
-    }
-
     public function register(Request $request)
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email',
+            'email' => 'required|email|unique:users,email',
             'password' => 'required|min:6'
         ]);
 
-        // CREATE USER IN FIREBASE
-        $firebaseUser = $this->firebase->createUser(
-            $request->name,
-            $request->email,
-            $request->password
-        );
-
-        // SAFE ARRAY ACCESS
-        $uid = $firebaseUser->uid ?? null;
-
-        if (!$uid) {
-            return response()->json([
-                'message' => 'Firebase UID not found'
-            ], 500);
-        }
-
-        // SYNC TO MYSQL
-        $user = User::updateOrCreate(
-            ['firebase_uid' => $uid],
-            [
-                'name' => $request->name,
-                'email' => $request->email,
-                'password' => Hash::make($request->password),
-            ]
-        );
+        // BYPASS FIREBASE: Langsung bikin data di MySQL lokal
+        $user = User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+            'firebase_uid' => Str::random(28), // UID palsu buat ngakalin sistem
+        ]);
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'message' => 'Register success',
+            'message' => 'Register success (Bypass Firebase)',
             'user' => $user,
             'token' => $token
         ]);
@@ -67,40 +42,21 @@ class AuthController extends Controller
             'password' => 'required'
         ]);
 
-        // FIREBASE LOGIN
-        $signIn = $this->firebase->signIn(
-            $request->email,
-            $request->password
-        );
+        // BYPASS FIREBASE: Cek login langsung ke MySQL lokal
+        $user = User::where('email', $request->email)->first();
 
-        // GET DATA (SAFE ARRAY)
-        $firebaseUser = $signIn->data() ?? [];
-
-        $uid = $firebaseUser['uid'] ?? null;
-        $email = $firebaseUser['email'] ?? $request->email;
-        $name = $firebaseUser['displayName'] ?? explode('@', $email)[0];
-
-        if (!$uid) {
+        if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json([
-                'message' => 'Firebase UID not found'
-            ], 500);
+                'message' => 'Email atau Password salah'
+            ], 401);
         }
-
-        // SYNC TO MYSQL
-        $user = User::updateOrCreate(
-            ['firebase_uid' => $uid],
-            [
-                'email' => $email,
-                'name' => $name,
-            ]
-        );
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'message' => 'Login success',
+            'message' => 'Login success (Bypass Firebase)',
             'token' => $token,
-            'firebase_token' => $signIn->idToken(),
+            'firebase_token' => 'dummy_token_sementara',
             'user' => $user
         ]);
     }
